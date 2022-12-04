@@ -1,13 +1,13 @@
 #include "../include/newfs.h"
 
 extern struct nfs_super      nfs_super; 
-extern struct custom_options nfs_options;
+extern struct custom_options sfs_options;
 
-void dump_map() {
+void nfs_dump_map() {
     int byte_cursor = 0;
     int bit_cursor = 0;
 
-    for (byte_cursor = 0; byte_cursor < BLKS_SZ(nfs_super.map_inode_blks); 
+    for (byte_cursor = 0; byte_cursor < NFS_BLKS_SZ(nfs_super.map_inode_blks); 
          byte_cursor+=4)
     {
         for (bit_cursor = 0; bit_cursor < UINT8_BITS; bit_cursor++) {

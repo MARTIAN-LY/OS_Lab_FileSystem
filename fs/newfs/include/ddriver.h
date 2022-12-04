@@ -10,7 +10,7 @@
  * @param path ddriver设备路径
  * @return int 0成功，否则失败
  */
-int ddriver_open(char *path);
+int ddriver_open(const char *path);
 
 /**
  * @brief 移动ddriver磁盘头

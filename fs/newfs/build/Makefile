@@ -129,6 +129,30 @@ newfs/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/build
 .PHONY : newfs/fast
 
+src/debug.o: src/debug.c.o
+.PHONY : src/debug.o
+
+# target to build an object file
+src/debug.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/debug.c.o
+.PHONY : src/debug.c.o
+
+src/debug.i: src/debug.c.i
+.PHONY : src/debug.i
+
+# target to preprocess a source file
+src/debug.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/debug.c.i
+.PHONY : src/debug.c.i
+
+src/debug.s: src/debug.c.s
+.PHONY : src/debug.s
+
+# target to generate assembly for a file
+src/debug.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/debug.c.s
+.PHONY : src/debug.c.s
+
 src/newfs.o: src/newfs.c.o
 .PHONY : src/newfs.o
 
@@ -153,6 +177,54 @@ src/newfs.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/newfs.c.s
 .PHONY : src/newfs.c.s
 
+src/utils.o: src/utils.c.o
+.PHONY : src/utils.o
+
+# target to build an object file
+src/utils.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils.c.o
+.PHONY : src/utils.c.o
+
+src/utils.i: src/utils.c.i
+.PHONY : src/utils.i
+
+# target to preprocess a source file
+src/utils.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils.c.i
+.PHONY : src/utils.c.i
+
+src/utils.s: src/utils.c.s
+.PHONY : src/utils.s
+
+# target to generate assembly for a file
+src/utils.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils.c.s
+.PHONY : src/utils.c.s
+
+src/utils0.o: src/utils0.c.o
+.PHONY : src/utils0.o
+
+# target to build an object file
+src/utils0.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.o
+.PHONY : src/utils0.c.o
+
+src/utils0.i: src/utils0.c.i
+.PHONY : src/utils0.i
+
+# target to preprocess a source file
+src/utils0.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.i
+.PHONY : src/utils0.c.i
+
+src/utils0.s: src/utils0.c.s
+.PHONY : src/utils0.s
+
+# target to generate assembly for a file
+src/utils0.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.s
+.PHONY : src/utils0.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -162,9 +234,18 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... newfs"
+	@echo "... src/debug.o"
+	@echo "... src/debug.i"
+	@echo "... src/debug.s"
 	@echo "... src/newfs.o"
 	@echo "... src/newfs.i"
 	@echo "... src/newfs.s"
+	@echo "... src/utils.o"
+	@echo "... src/utils.i"
+	@echo "... src/utils.s"
+	@echo "... src/utils0.o"
+	@echo "... src/utils0.i"
+	@echo "... src/utils0.s"
 .PHONY : help
 
 

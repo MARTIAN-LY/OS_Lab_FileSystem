@@ -39,8 +39,8 @@ static struct fuse_operations operations = {
  * @param conn_info 可忽略，一些建立连接相关的信息
  */
 void* newfs_init(struct fuse_conn_info * conn_info) {
-	if (nfs_mount(nfs_options) != ERROR_NONE) {
-        DBG("[%s] mount error\n", __func__);
+	if (nfs_mount(nfs_options) != NFS_ERROR_NONE) {
+        NFS_DBG("[%s] mount error\n", __func__);
 		fuse_exit(fuse_get_context()->fuse);
 		return NULL;
 	}
@@ -52,8 +52,8 @@ void* newfs_init(struct fuse_conn_info * conn_info) {
  * @param p 可忽略
  */
 void newfs_destroy(void* p) {
-	if (nfs_umount() != ERROR_NONE) {
-		DBG("[%s] unmount error\n", __func__);
+	if (nfs_umount() != NFS_ERROR_NONE) {
+		NFS_DBG("[%s] unmount error\n", __func__);
 		fuse_exit(fuse_get_context()->fuse);
 		return;
 	}
@@ -79,17 +79,17 @@ int newfs_mkdir(const char* path, mode_t mode) {
 		return -EEXIST;
 	}
 
-	if (IS_REG(last_dentry->inode)) {
+	if (NFS_IS_REG(last_dentry->inode)) {
 		return -ENXIO;
 	}
 
 	fname  = nfs_get_fname(path);
-	dentry = new_dentry(fname, DIR); 
+	dentry = new_dentry(fname, NFS_DIR); 
 	dentry->parent = last_dentry;
 	inode  = nfs_alloc_inode(dentry);
 	nfs_alloc_dentry(last_dentry->inode, dentry);
 	
-	return ERROR_NONE;
+	return NFS_ERROR_NONE;
 }
 
 /**
@@ -106,16 +106,16 @@ int newfs_getattr(const char* path, struct stat * nfs_stat) {
 		return -ENOENT;
 	}
 
-	if (IS_DIR(dentry->inode)) {
-		nfs_stat->st_mode = S_IFDIR | DEFAULT_PERM;
-		nfs_stat->st_size = dentry->inode->dir_cnt * sizeof(struct disk_dentry);
+	if (NFS_IS_DIR(dentry->inode)) {
+		nfs_stat->st_mode = S_IFDIR | NFS_DEFAULT_PERM;
+		nfs_stat->st_size = dentry->inode->dir_cnt * sizeof(struct nfs_dentry_d);
 	}
-	else if (IS_REG(dentry->inode)) {
-		nfs_stat->st_mode = S_IFREG | DEFAULT_PERM;
+	else if (NFS_IS_REG(dentry->inode)) {
+		nfs_stat->st_mode = S_IFREG | NFS_DEFAULT_PERM;
 		nfs_stat->st_size = dentry->inode->size;
 	}
-	else if (IS_SYM_LINK(dentry->inode)) {
-		nfs_stat->st_mode = S_IFLNK | DEFAULT_PERM;
+	else if (NFS_IS_SYM_LINK(dentry->inode)) {
+		nfs_stat->st_mode = S_IFLNK | NFS_DEFAULT_PERM;
 		nfs_stat->st_size = dentry->inode->size;
 	}
 
@@ -124,14 +124,14 @@ int newfs_getattr(const char* path, struct stat * nfs_stat) {
 	nfs_stat->st_gid 	 = getgid();
 	nfs_stat->st_atime   = time(NULL);
 	nfs_stat->st_mtime   = time(NULL);
-	nfs_stat->st_blksize = IO_SZ();
+	nfs_stat->st_blksize = NFS_IO_SZ();
 
 	if (is_root) {
 		nfs_stat->st_size	= nfs_super.sz_usage; 
-		nfs_stat->st_blocks = DISK_SZ() / IO_SZ();
+		nfs_stat->st_blocks = NFS_DISK_SZ() / NFS_IO_SZ();
 		nfs_stat->st_nlink  = 2;		/* !特殊，根目录link数为2 */
 	}
-	return ERROR_NONE;
+	return NFS_ERROR_NONE;
 }
 
 /**
@@ -166,7 +166,7 @@ int newfs_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t o
 		if (sub_dentry) {
 			filler(buf, sub_dentry->fname, NULL, ++offset);
 		}
-		return ERROR_NONE;
+		return NFS_ERROR_NONE;
 	}
 	return -ENOENT;
 }
@@ -194,19 +194,19 @@ int newfs_mknod(const char* path, mode_t mode, dev_t dev) {
 	fname = nfs_get_fname(path);
 	
 	if (S_ISREG(mode)) {
-		dentry = new_dentry(fname, REG_FILE);
+		dentry = new_dentry(fname, NFS_REG_FILE);
 	}
 	else if (S_ISDIR(mode)) {
-		dentry = new_dentry(fname, DIR);
+		dentry = new_dentry(fname, NFS_DIR);
 	}
 	else {
-		dentry = new_dentry(fname, REG_FILE);
+		dentry = new_dentry(fname, NFS_REG_FILE);
 	}
 	dentry->parent = last_dentry;
 	inode = nfs_alloc_inode(dentry);
 	nfs_alloc_dentry(last_dentry->inode, dentry);
 
-	return ERROR_NONE;
+	return NFS_ERROR_NONE;
 }
 
 /**
@@ -218,7 +218,7 @@ int newfs_mknod(const char* path, mode_t mode, dev_t dev) {
  */
 int newfs_utimens(const char* path, const struct timespec tv[2]) {
 	(void)path;
-	return ERROR_NONE;
+	return NFS_ERROR_NONE;
 }
 /******************************************************************************
 * SECTION: 选做函数实现
