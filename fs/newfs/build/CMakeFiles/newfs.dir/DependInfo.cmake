@@ -11,7 +11,6 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/students/200111223/user-land-filesystem/fs/newfs/src/debug.c" "CMakeFiles/newfs.dir/src/debug.c.o" "gcc" "CMakeFiles/newfs.dir/src/debug.c.o.d"
   "/home/students/200111223/user-land-filesystem/fs/newfs/src/newfs.c" "CMakeFiles/newfs.dir/src/newfs.c.o" "gcc" "CMakeFiles/newfs.dir/src/newfs.c.o.d"
   "/home/students/200111223/user-land-filesystem/fs/newfs/src/utils.c" "CMakeFiles/newfs.dir/src/utils.c.o" "gcc" "CMakeFiles/newfs.dir/src/utils.c.o.d"
-  "/home/students/200111223/user-land-filesystem/fs/newfs/src/utils0.c" "CMakeFiles/newfs.dir/src/utils0.c.o" "gcc" "CMakeFiles/newfs.dir/src/utils0.c.o.d"
   )
 
 # Targets to which this target links.

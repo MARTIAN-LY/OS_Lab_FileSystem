@@ -1,5 +1,5 @@
-#ifndef _nfs_H_ 
-#define _nfs_H_
+#ifndef _NFS_H_ 
+#define _NFS_H_
 
 #define FUSE_USE_VERSION 26
 #include "stdio.h"
@@ -61,7 +61,7 @@ int   			   newfs_truncate(const char *, off_t);
 int   			   newfs_open(const char *, struct fuse_file_info *);
 int   			   newfs_opendir(const char *, struct fuse_file_info *);
 /******************************************************************************
-* SECTION: nfs_debug.c
+* SECTION: debug.c
 *******************************************************************************/
-void 			   nfs_dump_map();
+void 			   nfs_dump_map_inode();
 #endif

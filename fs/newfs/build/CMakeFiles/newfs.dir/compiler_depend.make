@@ -328,11 +328,6 @@ CMakeFiles/newfs.dir/src/utils.c.o: ../src/utils.c \
   /usr/include/asm-generic/errno-base.h \
   ../include/types.h
 
-CMakeFiles/newfs.dir/src/utils0.c.o: ../src/utils0.c \
-  /usr/include/stdc-predef.h
-
-
-../src/utils0.c:
 
 ../src/utils.c:
 

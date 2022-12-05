@@ -3,7 +3,7 @@
 extern struct nfs_super      nfs_super; 
 extern struct custom_options sfs_options;
 
-void nfs_dump_map() {
+void nfs_dump_map_inode() {
     int byte_cursor = 0;
     int bit_cursor = 0;
 

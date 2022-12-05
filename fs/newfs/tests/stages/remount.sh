@@ -25,6 +25,7 @@ LAYOUT_FILE_ERR=3
 GOLDEN_LAYOUT_MISMATCH=4
 
 function check_bm() {
+    sleep 1
     _PARAM=$1
     _TEST_CASE=$2
     ROOT_PARENT_PATH=$(cd $(dirname $ROOT_PATH); pwd)

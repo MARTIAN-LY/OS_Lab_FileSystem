@@ -33,7 +33,7 @@ typedef enum NFS_file_type {
 
 #define NFS_MAX_FILE_NAME       128
 #define NFS_INODE_PER_FILE      1
-#define NFS_DATA_PER_FILE       16
+#define NFS_DATA_PER_FILE       6
 #define NFS_DEFAULT_PERM        0777
 
 #define NFS_IOC_MAGIC           'S'
@@ -44,14 +44,15 @@ typedef enum NFS_file_type {
 /******************************************************************************
 * SECTION: Macro Function
 *******************************************************************************/
-#define NFS_IO_SZ()                     (nfs_super.sz_io)
+#define NFS_IO_SZ()                     (nfs_super.sz_io)       // 512 B
+#define NFS_BLK_SZ()                    (nfs_super.sz_blk)      // 1024 B
 #define NFS_DISK_SZ()                   (nfs_super.sz_disk)
 #define NFS_DRIVER()                    (nfs_super.driver_fd)
 
 #define NFS_ROUND_DOWN(value, round)    (value % round == 0 ? value : (value / round) * round)
 #define NFS_ROUND_UP(value, round)      (value % round == 0 ? value : (value / round + 1) * round)
 
-#define NFS_BLKS_SZ(blks)               (blks * NFS_IO_SZ())
+#define NFS_BLKS_SZ(blks)               (blks * NFS_BLK_SZ())
 #define NFS_ASSIGN_FNAME(pnfs_dentry, _fname)\
                                         memcpy(pnfs_dentry->fname, _fname, strlen(_fname))
 #define NFS_INO_OFS(ino)                (nfs_super.data_offset + ino * NFS_BLKS_SZ((\
@@ -79,9 +80,12 @@ struct nfs_super
     boolean     is_mounted;        
     int         sz_disk;            // 磁盘大小
     int         sz_usage;
-    int         sz_io;              // inode的大小
+    int         sz_io;              // 磁盘块：512 B
+    int         sz_blk;             // 文件系统块：1024 B
 
-    int         max_ino;            // inode数目
+    int         num_ino;            // inode数目
+    int         num_data;           // data 块数 = inode数 * NFS_DATA_PER_FILE
+    
     uint8_t*    map_inode;          // inode位图
     int         map_inode_blks;     // inode位图占用的块数
     int         map_inode_offset;   // inode位图起始地址
@@ -99,7 +103,7 @@ struct nfs_inode
     int                ino;         // 在inod位图的索引
     int                size;        // 文件已占用大小
     int                dir_cnt;     // 如果是目录，其下的目录项
-    int                p_blk[6];
+    int                p_blk[NFS_DATA_PER_FILE];    //数据块指针
     struct nfs_dentry* dentry;      // 指向该inode的dentry
     struct nfs_dentry* dentrys;     // 所有目录项 
     uint8_t*           data;
@@ -134,12 +138,12 @@ struct nfs_super_d
 {
     uint32_t magic_num;
     int      sz_usage;
-    int      max_ino;            // inode数
+    int      num_ino;            // inode数
     int      map_inode_blks;     // inode位图占的块数
     int      map_inode_offset;   // inode位图在磁盘上的偏移
 
     int      map_data;           // data位图
-    int      map_data_blks;    // data位图占用的块数
+    int      map_data_blks;      // data位图占用的块数
     int      map_data_offset;    // data位图在磁盘上的偏移
 
     int      data_offset;        // 数据块的起始地址
@@ -151,7 +155,7 @@ struct nfs_inode_d
     int             size;            // 文件已占用空间
     int             link;            // 链接数
     int             dir_cnt;         // 如果是目录型文件，下面有几个目录项
-    int             p_blk[6];        // 数据块指针
+    int             p_blk[NFS_DATA_PER_FILE];        // 数据块指针
     NFS_FILE_TYPE   ftype;
     char            target_path[NFS_MAX_FILE_NAME];// store traget path when it is a symlink   
 };  

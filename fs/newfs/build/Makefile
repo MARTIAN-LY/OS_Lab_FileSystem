@@ -201,30 +201,6 @@ src/utils.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils.c.s
 .PHONY : src/utils.c.s
 
-src/utils0.o: src/utils0.c.o
-.PHONY : src/utils0.o
-
-# target to build an object file
-src/utils0.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.o
-.PHONY : src/utils0.c.o
-
-src/utils0.i: src/utils0.c.i
-.PHONY : src/utils0.i
-
-# target to preprocess a source file
-src/utils0.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.i
-.PHONY : src/utils0.c.i
-
-src/utils0.s: src/utils0.c.s
-.PHONY : src/utils0.s
-
-# target to generate assembly for a file
-src/utils0.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/newfs.dir/build.make CMakeFiles/newfs.dir/src/utils0.c.s
-.PHONY : src/utils0.c.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -243,9 +219,6 @@ help:
 	@echo "... src/utils.o"
 	@echo "... src/utils.i"
 	@echo "... src/utils.s"
-	@echo "... src/utils0.o"
-	@echo "... src/utils0.i"
-	@echo "... src/utils0.s"
 .PHONY : help
 
 

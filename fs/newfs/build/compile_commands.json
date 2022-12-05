@@ -13,10 +13,5 @@
   "directory": "/home/students/200111223/user-land-filesystem/fs/newfs/build",
   "command": "/usr/bin/gcc  -I/home/students/200111223/user-land-filesystem/fs/newfs/./include  -D_FILE_OFFSET_BITS=64 -no-pie -g -Wall --pedantic -g -o CMakeFiles/newfs.dir/src/utils.c.o -c /home/students/200111223/user-land-filesystem/fs/newfs/src/utils.c",
   "file": "/home/students/200111223/user-land-filesystem/fs/newfs/src/utils.c"
-},
-{
-  "directory": "/home/students/200111223/user-land-filesystem/fs/newfs/build",
-  "command": "/usr/bin/gcc  -I/home/students/200111223/user-land-filesystem/fs/newfs/./include  -D_FILE_OFFSET_BITS=64 -no-pie -g -Wall --pedantic -g -o CMakeFiles/newfs.dir/src/utils0.c.o -c /home/students/200111223/user-land-filesystem/fs/newfs/src/utils0.c",
-  "file": "/home/students/200111223/user-land-filesystem/fs/newfs/src/utils0.c"
 }
 ]
