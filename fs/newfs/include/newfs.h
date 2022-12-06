@@ -64,4 +64,5 @@ int   			   newfs_opendir(const char *, struct fuse_file_info *);
 * SECTION: debug.c
 *******************************************************************************/
 void 			   nfs_dump_map_inode();
+void			   nfs_dump_map_data();
 #endif

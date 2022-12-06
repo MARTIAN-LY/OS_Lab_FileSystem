@@ -46,4 +46,8 @@ options:
 大家直接SSH切到相应目录，打断点运行即可:
 注意SFS和MYFS的编译需要和一中步骤1 ~ 7一致
 ========================================================================
-    
+
+./build/newfs --device=/home/students/200111223/ddriver -f -d -s ./tests/mnt/
+
+fusermount -u ./tests/mnt
+

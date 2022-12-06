@@ -21,13 +21,13 @@ int nfs_calc_lvl(const char *path)
 {
     // char* path_cpy = (char *)malloc(strlen(path));
     // strcpy(path_cpy, path);
-    char *str = path;
+    char *str = (char *)path;
     int lvl = 0;
     if (strcmp(path, "/") == 0)
     {
         return lvl;
     }
-    while (*str != NULL)
+    while (*str != 0)
     {
         if (*str == '/')
         {
@@ -152,6 +152,8 @@ struct nfs_inode *nfs_alloc_inode(struct nfs_dentry *dentry)
     int ino_cursor = 0;
     boolean is_find_free_entry = FALSE;
 
+    printf("before alloc inode=======================\n");
+    nfs_dump_map_inode();
     // 从 inode 位图里找空闲
     for (byte_cursor = 0; byte_cursor < NFS_BLKS_SZ(nfs_super.map_inode_blks); byte_cursor++)
     {
@@ -171,21 +173,25 @@ struct nfs_inode *nfs_alloc_inode(struct nfs_dentry *dentry)
     }
     if (!is_find_free_entry || ino_cursor == nfs_super.num_ino)
         return -NFS_ERROR_NOSPACE;
+    printf("after alloc inode=======================\n");
+    nfs_dump_map_inode();
 
+    printf("before alloc data=======================\n");
+    nfs_dump_map_data();
     // 从 data 位图里找空闲
     int data_cursor = 0;
     int free_data = 0;
-    int mark_blk[NFS_DATA_PER_FILE] = { 0 };
+    int mark_blk[NFS_DATA_PER_FILE] = {0};
+    is_find_free_entry = FALSE;
     for (byte_cursor = 0; byte_cursor < NFS_BLKS_SZ(nfs_super.map_data_blks); byte_cursor++)
     {
         for (bit_cursor = 0; bit_cursor < UINT8_BITS; bit_cursor++)
         {
-            if ((nfs_super.map_inode[byte_cursor] & (0x1 << bit_cursor)) == 0)
+            if ((nfs_super.map_data[byte_cursor] & (0x1 << bit_cursor)) == 0)
             {
                 /* 当前data_cursor位置空闲 */
                 nfs_super.map_data[byte_cursor] |= (0x1 << bit_cursor);
-                mark_blk[free_data] = data_cursor;
-                ++free_data;
+                mark_blk[free_data++] = data_cursor;
             }
             // 找到所需 data 块
             if (free_data == NFS_DATA_PER_FILE)
@@ -201,12 +207,15 @@ struct nfs_inode *nfs_alloc_inode(struct nfs_dentry *dentry)
     if (!is_find_free_entry || data_cursor == nfs_super.num_data)
         return -NFS_ERROR_NOSPACE;
 
+    printf("after alloc data=======================\n");
+    nfs_dump_map_data();
+
     inode = (struct nfs_inode *)malloc(sizeof(struct nfs_inode));
     inode->ino = ino_cursor;
     inode->size = 0;
     for (int i = 0; i < NFS_DATA_PER_FILE; i++)
         inode->p_blk[i] = mark_blk[i];
-    
+
     /* dentry指向inode */
     dentry->inode = inode;
     dentry->ino = inode->ino;
@@ -216,9 +225,10 @@ struct nfs_inode *nfs_alloc_inode(struct nfs_dentry *dentry)
     inode->dir_cnt = 0;
     inode->dentrys = NULL;
 
-    if (NFS_IS_REG(inode))
+    /* 文件分配数据块 */
+    for (int i = 0; i < NFS_DATA_PER_FILE; i++)
     {
-        inode->data = (uint8_t *)malloc(NFS_BLKS_SZ(NFS_DATA_PER_FILE));
+        inode->data[i] = (uint8_t *)malloc(NFS_BLK_SZ());
     }
 
     return inode;
@@ -229,16 +239,19 @@ struct nfs_inode *nfs_alloc_inode(struct nfs_dentry *dentry)
 int nfs_sync_inode(struct nfs_inode *inode)
 {
     struct nfs_inode_d inode_d;
-    struct nfs_dentry *dentry_cursor;
     struct nfs_dentry_d dentry_d;
+
+    memcpy(inode_d.target_path, inode->target_path, NFS_MAX_FILE_NAME);
+
     int ino = inode->ino;
     inode_d.ino = ino;
     inode_d.size = inode->size;
-    memcpy(inode_d.target_path, inode->target_path, NFS_MAX_FILE_NAME);
     inode_d.ftype = inode->dentry->ftype;
     inode_d.dir_cnt = inode->dir_cnt;
-    int offset;
-
+    // 数据块指针
+    for (int i = 0; i < NFS_DATA_PER_FILE; i++)
+        inode_d.p_blk[i] = inode->p_blk[i];
+    // 写此 inode
     if (nfs_driver_write(NFS_INO_OFS(ino), (uint8_t *)&inode_d,
                          sizeof(struct nfs_inode_d)) != NFS_ERROR_NONE)
     {
@@ -249,36 +262,56 @@ int nfs_sync_inode(struct nfs_inode *inode)
     /* Cycle 2: 写 数据 */
     if (NFS_IS_DIR(inode))
     {
-        dentry_cursor = inode->dentrys;
-        offset = NFS_DATA_OFS(ino);
-        while (dentry_cursor != NULL)
+        /* 写此inode下面的dentry
+            inode对应的 6 个数据块不一定连续 */
+        int offset;
+        int blk_end;
+        int blk_used = 0;
+        struct nfs_dentry *dentry_cursor = inode->dentrys;
+        while (blk_used < NFS_DATA_PER_FILE && dentry_cursor != NULL)
         {
-            memcpy(dentry_d.fname, dentry_cursor->fname, NFS_MAX_FILE_NAME);
-            dentry_d.ftype = dentry_cursor->ftype;
-            dentry_d.ino = dentry_cursor->ino;
-            if (nfs_driver_write(offset, (uint8_t *)&dentry_d,
-                                 sizeof(struct nfs_dentry_d)) != NFS_ERROR_NONE)
+            offset = NFS_DATA_OFS(inode->p_blk[blk_used]);
+            blk_end = offset + NFS_BLK_SZ();
+            while (dentry_cursor != NULL)
             {
-                NFS_DBG("[%s] io error\n", __func__);
-                return -NFS_ERROR_IO;
+                memcpy(dentry_d.fname, dentry_cursor->fname, NFS_MAX_FILE_NAME);
+                dentry_d.ftype = dentry_cursor->ftype;
+                dentry_d.ino = dentry_cursor->ino;
+                if (nfs_driver_write(offset, (uint8_t *)&dentry_d,
+                                     sizeof(struct nfs_dentry_d)) != NFS_ERROR_NONE)
+                {
+                    NFS_DBG("[%s] io error\n", __func__);
+                    return -NFS_ERROR_IO;
+                }
+                // 递归
+                if (dentry_cursor->inode != NULL)
+                    nfs_sync_inode(dentry_cursor->inode);
+                /*
+                    inode下面的dentry按链表形式存储，
+                    这个dentry写完了，写下一个dentry
+                 */
+                dentry_cursor = dentry_cursor->brother;
+                offset += sizeof(struct nfs_dentry_d);
+                // 这个数据块写满了
+                if (offset + sizeof(struct nfs_dentry_d) > blk_end)
+                {
+                    blk_used++;
+                    break;
+                }
             }
-
-            if (dentry_cursor->inode != NULL)
-            {
-                nfs_sync_inode(dentry_cursor->inode);
-            }
-
-            dentry_cursor = dentry_cursor->brother;
-            offset += sizeof(struct nfs_dentry_d);
         }
     }
     else if (NFS_IS_REG(inode))
     {
-        if (nfs_driver_write(NFS_DATA_OFS(ino), inode->data,
-                             NFS_BLKS_SZ(NFS_DATA_PER_FILE)) != NFS_ERROR_NONE)
+        for (int i = 0; i < NFS_DATA_PER_FILE; i++)
         {
-            NFS_DBG("[%s] io error\n", __func__);
-            return -NFS_ERROR_IO;
+            if (nfs_driver_write(NFS_DATA_OFS(inode->p_blk[i]), inode->data[i],
+                                 NFS_BLK_SZ()) != NFS_ERROR_NONE)
+            {
+                NFS_DBG("[%s] io error\n", __func__);
+
+                return -NFS_ERROR_IO;
+            }
         }
     }
     return NFS_ERROR_NONE;
@@ -308,8 +341,6 @@ int nfs_sync_inode(struct nfs_inode *inode)
  *                Dentry -> Dentry
  *
  *   Recursive
- * @param inode
- * @return int
  */
 int nfs_drop_inode(struct nfs_inode *inode)
 {
@@ -323,9 +354,7 @@ int nfs_drop_inode(struct nfs_inode *inode)
     boolean is_find = FALSE;
 
     if (inode == nfs_super.root_dentry->inode)
-    {
         return NFS_ERROR_INVAL;
-    }
 
     if (NFS_IS_DIR(inode))
     {
@@ -361,18 +390,18 @@ int nfs_drop_inode(struct nfs_inode *inode)
                 break;
             }
         }
-        if (inode->data)
-            free(inode->data);
+        for (int i = 0; i < NFS_DATA_PER_FILE; i++)
+        {
+            if (inode->data[i])
+                free(inode->data[i]);
+        }
         free(inode);
     }
     return NFS_ERROR_NONE;
 }
 /**
- * @brief
- *
  * @param dentry dentry指向ino，读取该inode
  * @param ino inode唯一编号
- * @return struct nfs_inode*
  */
 struct nfs_inode *nfs_read_inode(struct nfs_dentry *dentry, int ino)
 {
@@ -380,7 +409,6 @@ struct nfs_inode *nfs_read_inode(struct nfs_dentry *dentry, int ino)
     struct nfs_inode_d inode_d;
     struct nfs_dentry *sub_dentry;
     struct nfs_dentry_d dentry_d;
-    int dir_cnt = 0, i;
     if (nfs_driver_read(NFS_INO_OFS(ino), (uint8_t *)&inode_d,
                         sizeof(struct nfs_inode_d)) != NFS_ERROR_NONE)
     {
@@ -393,14 +421,24 @@ struct nfs_inode *nfs_read_inode(struct nfs_dentry *dentry, int ino)
     memcpy(inode->target_path, inode_d.target_path, NFS_MAX_FILE_NAME);
     inode->dentry = dentry;
     inode->dentrys = NULL;
+    // 保存数据块指针
+    for (int i = 0; i < NFS_DATA_PER_FILE; i++)
+        inode->p_blk[i] = inode_d.p_blk[i];
+
     if (NFS_IS_DIR(inode))
     {
-        dir_cnt = inode_d.dir_cnt;
-        for (i = 0; i < dir_cnt; i++)
+        //读目录项，一块一块读
+        int blk_cnt = 0;
+        int begin = NFS_DATA_OFS(inode->p_blk[0]);
+        int blk_end = begin + NFS_BLK_SZ();
+        for (int i = 0; i < inode_d.dir_cnt; i++)
         {
-            if (nfs_driver_read(NFS_DATA_OFS(ino) + i * sizeof(struct nfs_dentry_d),
-                                (uint8_t *)&dentry_d,
-                                sizeof(struct nfs_dentry_d)) != NFS_ERROR_NONE)
+            if (begin + sizeof(struct nfs_dentry_d) >= blk_end)
+            {
+                begin = NFS_DATA_OFS(inode->p_blk[++blk_cnt]);
+                blk_end = begin + NFS_BLK_SZ();
+            }
+            if (nfs_driver_read(begin, (uint8_t *)&dentry_d, sizeof(struct nfs_dentry_d)) != NFS_ERROR_NONE)
             {
                 NFS_DBG("[%s] io error\n", __func__);
                 return NULL;
@@ -409,16 +447,21 @@ struct nfs_inode *nfs_read_inode(struct nfs_dentry *dentry, int ino)
             sub_dentry->parent = inode->dentry;
             sub_dentry->ino = dentry_d.ino;
             nfs_alloc_dentry(inode, sub_dentry);
+
+            begin += sizeof(struct nfs_dentry_d);
         }
     }
+    // 读文件
     else if (NFS_IS_REG(inode))
     {
-        inode->data = (uint8_t *)malloc(NFS_BLKS_SZ(NFS_DATA_PER_FILE));
-        if (nfs_driver_read(NFS_DATA_OFS(ino), (uint8_t *)inode->data,
-                            NFS_BLKS_SZ(NFS_DATA_PER_FILE)) != NFS_ERROR_NONE)
+        for (int i = 0; i < NFS_DATA_PER_FILE; i++)
         {
-            NFS_DBG("[%s] io error\n", __func__);
-            return NULL;
+            inode->data[i] = (uint8_t *)malloc(NFS_BLK_SZ());
+            if (nfs_driver_read(NFS_DATA_OFS(inode->p_blk[i]), (uint8_t *)inode->data[i], NFS_BLK_SZ()) != NFS_ERROR_NONE)
+            {
+                NFS_DBG("[%s] io error\n", __func__);
+                return NULL;
+            }
         }
     }
     return inode;
@@ -542,7 +585,7 @@ struct nfs_dentry *nfs_lookup(const char *path, boolean *is_find, boolean *is_ro
  * Layout
  * | Super | Inode Map | Data Map | Data |
  *
- * IO_SZ = BLK_SZ
+ * BLK_SZ = 2 * IO_SZ
  *
  * 每个Inode占用一个Blk
  */
@@ -562,7 +605,6 @@ int nfs_mount(struct custom_options options)
     boolean is_init = FALSE;
     nfs_super.is_mounted = FALSE;
 
-    // driver_fd = open(options.device, O_RDWR);
     driver_fd = ddriver_open(options.device);
     if (driver_fd < 0)
         return driver_fd;
@@ -581,13 +623,13 @@ int nfs_mount(struct custom_options options)
     // 首次启动磁盘，估算各部分大小，建立super block布局
     if (nfs_super_d.magic_num != NFS_MAGIC_NUM)
     {
-        super_blks = NFS_ROUND_UP(sizeof(struct nfs_super_d), NFS_IO_SZ()) / NFS_IO_SZ();
+        super_blks = NFS_ROUND_UP(sizeof(struct nfs_super_d), NFS_BLK_SZ()) / NFS_BLK_SZ();
         // 一个inode对应一个文件，一个文件最多 DATA_PER_FILE 块
-        inode_num = NFS_DISK_SZ() / ((NFS_DATA_PER_FILE + NFS_INODE_PER_FILE) * NFS_IO_SZ());
+        inode_num = NFS_DISK_SZ() / ((NFS_DATA_PER_FILE + NFS_INODE_PER_FILE) * NFS_BLK_SZ());
 
-        map_inode_blks = NFS_ROUND_UP(NFS_ROUND_UP(inode_num, UINT8_BITS), NFS_IO_SZ()) / NFS_IO_SZ();
+        map_inode_blks = NFS_ROUND_UP(NFS_ROUND_UP(inode_num, UINT8_BITS), NFS_BLK_SZ()) / NFS_BLK_SZ();
 
-        map_data_blks = NFS_ROUND_UP(NFS_ROUND_UP(NFS_DATA_PER_FILE * inode_num, UINT8_BITS), NFS_IO_SZ()) / NFS_IO_SZ();
+        map_data_blks = NFS_ROUND_UP(NFS_ROUND_UP(NFS_DATA_PER_FILE * inode_num, UINT8_BITS), NFS_BLK_SZ()) / NFS_BLK_SZ();
 
         // layout
         nfs_super_d.magic_num = NFS_MAGIC_NUM;
@@ -598,10 +640,18 @@ int nfs_mount(struct custom_options options)
 
         nfs_super_d.map_inode_offset = NFS_SUPER_OFS + NFS_BLKS_SZ(super_blks);
         nfs_super_d.map_data_offset = nfs_super_d.map_inode_offset + NFS_BLKS_SZ(map_inode_blks);
-        nfs_super_d.data_offset = nfs_super_d.map_data_offset + NFS_BLKS_SZ(map_data_blks);
+        nfs_super_d.inode_offset = nfs_super_d.map_data_offset + NFS_BLKS_SZ(map_data_blks);
+        nfs_super_d.data_offset = nfs_super_d.map_data_offset + NFS_BLKS_SZ(nfs_super_d.num_ino);
 
+        NFS_DBG("super blocks: %d\n", super_blks);
         NFS_DBG("inode map blocks: %d\n", map_inode_blks);
         NFS_DBG(" data map blocks: %d\n", map_data_blks);
+        NFS_DBG("inode num: %d\n", nfs_super_d.num_ino);
+        NFS_DBG("data block num: %d\n", NFS_DATA_PER_FILE * nfs_super_d.num_ino);
+
+        NFS_DBG("inode map offset %d\n", nfs_super_d.map_inode_offset);
+        NFS_DBG(" data map offset %d\n", nfs_super_d.map_data_offset);
+
         is_init = TRUE;
     }
     // 建立 super block 的 in-memory 结构
@@ -609,36 +659,49 @@ int nfs_mount(struct custom_options options)
     nfs_super.num_ino = nfs_super_d.num_ino;
     nfs_super.num_data = NFS_DATA_PER_FILE * nfs_super_d.num_ino;
 
-    nfs_super.map_inode = (uint8_t *)malloc(NFS_BLKS_SZ(nfs_super_d.map_inode_blks));
+    nfs_super.map_inode = (uint8_t *)calloc(NFS_BLKS_SZ(nfs_super_d.map_inode_blks), sizeof(uint8_t));
     nfs_super.map_inode_blks = nfs_super_d.map_inode_blks;
     nfs_super.map_inode_offset = nfs_super_d.map_inode_offset;
 
-    nfs_super.map_data = (uint8_t *)malloc(NFS_BLKS_SZ(nfs_super_d.map_data_blks));
+    nfs_super.map_data = (uint8_t *)calloc(NFS_BLKS_SZ(nfs_super_d.map_data_blks), sizeof(uint8_t));
     nfs_super.map_data_blks = nfs_super_d.map_data_blks;
     nfs_super.map_data_offset = nfs_super_d.map_data_offset;
 
+    nfs_super.inode_offset = nfs_super_d.inode_offset;
     nfs_super.data_offset = nfs_super_d.data_offset;
 
-    // 读inode位图
-    if (nfs_driver_read(nfs_super_d.map_inode_offset, (uint8_t *)(nfs_super.map_inode),
-                        NFS_BLKS_SZ(nfs_super_d.map_inode_blks)) != NFS_ERROR_NONE)
-        return -NFS_ERROR_IO;
-    // 读data位图
-    if (nfs_driver_read(nfs_super_d.map_data_offset, (uint8_t *)(nfs_super.map_data),
-                        NFS_BLKS_SZ(nfs_super_d.map_data_blks)) != NFS_ERROR_NONE)
-        return -NFS_ERROR_IO;
     // 分配根节点
     if (is_init)
     {
         root_inode = nfs_alloc_inode(root_dentry);
         nfs_sync_inode(root_inode);
     }
+    else
+    {
+        printf("before read inode map================\n");
+        printf("inode map offset : %d\n",nfs_super_d.map_inode_offset);
+        nfs_dump_map_inode();
+        // 读inode位图
+        if (nfs_driver_read(nfs_super_d.map_inode_offset, (uint8_t *)(nfs_super.map_inode),
+                            NFS_BLKS_SZ(nfs_super_d.map_inode_blks)) != NFS_ERROR_NONE)
+            return -NFS_ERROR_IO;
+        printf("after read inode map================\n");
+        nfs_dump_map_inode();
+
+        printf("before read data map================\n");
+        printf("data map offset : %d\n",nfs_super_d.map_data_offset);
+        nfs_dump_map_data();
+        // 读data位图
+        if (nfs_driver_read(nfs_super_d.map_data_offset, (uint8_t *)(nfs_super.map_data),
+                            NFS_BLKS_SZ(nfs_super_d.map_data_blks)) != NFS_ERROR_NONE)
+            return -NFS_ERROR_IO;
+        printf("after read data map================\n");
+        nfs_dump_map_data();
+    }
     root_inode = nfs_read_inode(root_dentry, NFS_ROOT_INO);
     root_dentry->inode = root_inode;
     nfs_super.root_dentry = root_dentry;
     nfs_super.is_mounted = TRUE;
-
-    nfs_dump_map_inode();
     return ret;
 }
 // 解除挂载
@@ -660,7 +723,7 @@ int nfs_umount()
     nfs_super_d.map_inode_offset = nfs_super.map_inode_offset;
 
     nfs_super_d.map_data_blks = nfs_super.map_data_blks;
-    nfs_super_d.map_data_offset = nfs_super.map_inode_offset;
+    nfs_super_d.map_data_offset = nfs_super.map_data_offset;
 
     nfs_super_d.data_offset = nfs_super.data_offset;
 
@@ -669,11 +732,17 @@ int nfs_umount()
                          sizeof(struct nfs_super_d)) != NFS_ERROR_NONE)
         return -NFS_ERROR_IO;
     // 回写inode map
+    printf("before write inode map================\n");
+    printf("inode map offset : %d\n",nfs_super_d.map_inode_offset);
+    nfs_dump_map_inode();
     if (nfs_driver_write(nfs_super_d.map_inode_offset, (uint8_t *)(nfs_super.map_inode),
                          NFS_BLKS_SZ(nfs_super_d.map_inode_blks)) != NFS_ERROR_NONE)
         return -NFS_ERROR_IO;
     free(nfs_super.map_inode);
     // 回写data map
+    printf("before write data map================\n");
+    printf("data map offset : %d\n",nfs_super_d.map_data_offset);
+    nfs_dump_map_data();
     if (nfs_driver_write(nfs_super_d.map_data_offset, (uint8_t *)(nfs_super.map_data),
                          NFS_BLKS_SZ(nfs_super_d.map_data_blks)) != NFS_ERROR_NONE)
         return -NFS_ERROR_IO;

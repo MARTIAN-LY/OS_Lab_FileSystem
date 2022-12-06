@@ -90,7 +90,7 @@ int newfs_mkdir(const char *path, mode_t mode)
 	fname = nfs_get_fname(path);
 	dentry = new_dentry(fname, NFS_DIR);
 	dentry->parent = last_dentry;
-	// ????
+			
 	inode = nfs_alloc_inode(dentry);
 	nfs_sync_inode(inode);
 
