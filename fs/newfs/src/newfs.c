@@ -136,12 +136,12 @@ int newfs_getattr(const char *path, struct stat *nfs_stat)
 	nfs_stat->st_gid = getgid();
 	nfs_stat->st_atime = time(NULL);
 	nfs_stat->st_mtime = time(NULL);
-	nfs_stat->st_blksize = NFS_IO_SZ();
+	nfs_stat->st_blksize = NFS_BLK_SZ();	// 小改
 
 	if (is_root)
 	{
 		nfs_stat->st_size = nfs_super.sz_usage;
-		nfs_stat->st_blocks = NFS_DISK_SZ() / NFS_IO_SZ();
+		nfs_stat->st_blocks = NFS_DISK_SZ() / NFS_BLK_SZ(); // 小改
 		nfs_stat->st_nlink = 2; /* !特殊，根目录link数为2 */
 	}
 	return NFS_ERROR_NONE;
